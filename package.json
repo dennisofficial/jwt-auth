@@ -1,0 +1,41 @@
+{
+  "name": "@workspace/auth",
+  "version": "1.0.0",
+  "description": "Package description",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./src/index.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./src/index.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "pnpm tsup && pnpm install --prefer-offline --ignore-scripts --frozen-lockfile",
+    "dev": "nodemon",
+    "prepare": "tsup"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@swc/core": "^1.15.32",
+    "@types/node": "^25.6.0",
+    "nodemon": "^3.1.14",
+    "prettier": "^3.8.3",
+    "prettier-plugin-organize-imports": "^4.3.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3"
+  }
+}
