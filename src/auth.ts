@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { jwtDecode } from 'jwt-decode';
+import { LoginDto, RegisterDto } from './dto';
 import type {
   AuthConfig,
   AuthResponse,
@@ -7,7 +8,6 @@ import type {
   AuthStateChangeCallback,
   UnsubscribeFunction,
 } from './types';
-import { LoginDto, RegisterDto } from './dto';
 
 interface JwtPayload {
   sub: string;
@@ -126,7 +126,9 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
   async signIn(email: string, password: string): Promise<AuthResponse> {
     this.ensureConfigured();
     const dto: LoginDto = { email, password };
-    const config: AxiosRequestConfig = this.hasTokenPersistence() ? { params: { includeTokens: 'true' } } : {};
+    const config: AxiosRequestConfig = this.hasTokenPersistence()
+      ? { params: { includeTokens: 'true' } }
+      : {};
     const response = await this._axiosInstance!.post<AuthResponse>('/auth/login', dto, {
       ...config,
       withCredentials: true,
@@ -138,7 +140,9 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
   async register(email: string, password: string): Promise<AuthResponse> {
     this.ensureConfigured();
     const dto: RegisterDto = { email, password };
-    const config: AxiosRequestConfig = this.hasTokenPersistence() ? { params: { includeTokens: 'true' } } : {};
+    const config: AxiosRequestConfig = this.hasTokenPersistence()
+      ? { params: { includeTokens: 'true' } }
+      : {};
     const response = await this._axiosInstance!.post<AuthResponse>('/auth/register', dto, {
       ...config,
       withCredentials: true,
@@ -157,7 +161,9 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
           config.headers = { Authorization: `Bearer ${this._accessToken}` };
         }
         await this._axiosInstance!.post('/auth/logout', {}, config);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       await this.clearTokensSafely();
       this._accessToken = null;
       this._refreshToken = null;
@@ -170,11 +176,22 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
   async getIdToken(force: boolean = false): Promise<string | null> {
     if (!this.hasTokenPersistence()) return null;
     this.ensureConfigured();
-    if (this.isRefreshTokenExpired()) { this.signOut(); return null; }
-    if (force || this.isTokenExpired()) {
-      try { await this.refreshToken(); } catch { this.signOut(); return null; }
+    if (this.isRefreshTokenExpired()) {
+      this.signOut();
+      return null;
     }
-    if (!this._accessToken) { this.signOut(); return null; }
+    if (force || this.isTokenExpired()) {
+      try {
+        await this.refreshToken();
+      } catch {
+        this.signOut();
+        return null;
+      }
+    }
+    if (!this._accessToken) {
+      this.signOut();
+      return null;
+    }
     return this._accessToken;
   }
 
@@ -182,7 +199,11 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     this.ensureConfigured();
     if (this.refreshPromise) return this.refreshPromise;
     this.refreshPromise = this.hasTokenPersistence() ? this._doRefresh() : this._doRefreshWeb();
-    try { await this.refreshPromise; } finally { this.refreshPromise = null; }
+    try {
+      await this.refreshPromise;
+    } finally {
+      this.refreshPromise = null;
+    }
   }
 
   private async _doRefresh(): Promise<void> {
@@ -240,13 +261,21 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
         this._refreshToken = data.tokens.refresh;
         this._accessExpiresAt = accessData.expiresAt;
         this._refreshExpiresAt = refreshExpiresAt;
-        this.updateState({ authenticated: true, authProviderId: data.user.id, profileId: data.user.profile?.id || null });
+        this.updateState({
+          authenticated: true,
+          authProviderId: data.user.id,
+          profileId: data.user.profile?.id || null,
+        });
       } catch (error) {
         console.error('Failed to save tokens:', error);
         throw new Error('Failed to save authentication tokens');
       }
     } else {
-      this.updateState({ authenticated: true, authProviderId: data.user.id, profileId: data.user.profile?.id || null });
+      this.updateState({
+        authenticated: true,
+        authProviderId: data.user.id,
+        profileId: data.user.profile?.id || null,
+      });
     }
   }
 
@@ -254,9 +283,16 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     axiosInstance.interceptors.request.use(
       async (config) => {
         if (this.hasTokenPersistence()) {
-          if (this.isRefreshTokenExpired()) { this.signOut(); return Promise.reject(new Error('Refresh token expired')); }
+          if (this.isRefreshTokenExpired()) {
+            this.signOut();
+            return Promise.reject(new Error('Refresh token expired'));
+          }
           if (this.isTokenExpired()) {
-            try { await this.refreshToken(); } catch (error) { return Promise.reject(error); }
+            try {
+              await this.refreshToken();
+            } catch (error) {
+              return Promise.reject(error);
+            }
           }
           if (this._accessToken) {
             config.headers = config.headers || {};
@@ -290,7 +326,9 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
   onAuthStateChanged(callback: AuthStateChangeCallback): UnsubscribeFunction {
     this.listeners.add(callback);
     if (!this.initializing) callback(this.state);
-    return () => { this.listeners.delete(callback); };
+    return () => {
+      this.listeners.delete(callback);
+    };
   }
 
   get currentAuthState(): AuthState {
@@ -306,7 +344,11 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
 
   private notifyListeners(): void {
     this.listeners.forEach((listener) => {
-      try { listener(this.state); } catch (error) { console.error('Error in auth state listener:', error); }
+      try {
+        listener(this.state);
+      } catch (error) {
+        console.error('Error in auth state listener:', error);
+      }
     });
   }
 
@@ -327,10 +369,16 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
   }
 
   private decodeToken(token: string): JwtPayload | null {
-    try { return jwtDecode<JwtPayload>(token); } catch { return null; }
+    try {
+      return jwtDecode<JwtPayload>(token);
+    } catch {
+      return null;
+    }
   }
 
-  private extractAccessTokenData(accessToken: string): { userId: string | null; authProviderId: string; expiresAt: number } | null {
+  private extractAccessTokenData(
+    accessToken: string,
+  ): { userId: string | null; authProviderId: string; expiresAt: number } | null {
     const payload = this.decodeToken(accessToken);
     if (!payload) return null;
     return { userId: payload.userId, authProviderId: payload.sub, expiresAt: payload.exp * 1000 };
@@ -344,7 +392,11 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
 
   private async clearTokensSafely(): Promise<void> {
     if (this.hasTokenPersistence()) {
-      try { await this.config!.tokenPersistence!.clearTokens(); } catch (error) { console.error('Failed to clear tokens:', error); }
+      try {
+        await this.config!.tokenPersistence!.clearTokens();
+      } catch (error) {
+        console.error('Failed to clear tokens:', error);
+      }
     }
   }
 

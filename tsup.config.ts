@@ -14,7 +14,7 @@ const external = [
 ];
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: ['src/index.ts', 'src/server/index.ts', 'src/dto/index.ts'],
   format: ['cjs', 'esm'],
   dts: false,
   splitting: true,

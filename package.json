@@ -15,6 +15,26 @@
         "types": "./src/index.ts",
         "default": "./dist/index.js"
       }
+    },
+    "./server": {
+      "import": {
+        "types": "./src/server/index.ts",
+        "default": "./dist/server/index.mjs"
+      },
+      "require": {
+        "types": "./src/server/index.ts",
+        "default": "./dist/server/index.js"
+      }
+    },
+    "./dto": {
+      "import": {
+        "types": "./src/dto/index.ts",
+        "default": "./dist/dto/index.mjs"
+      },
+      "require": {
+        "types": "./src/dto/index.ts",
+        "default": "./dist/dto/index.js"
+      }
     }
   },
   "files": [
@@ -30,6 +50,8 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@nestjs/common": "^11.1.19",
+    "@nestjs/core": "^11.1.19",
     "@swc/core": "^1.15.32",
     "@types/node": "^25.6.0",
     "nodemon": "^3.1.14",
@@ -41,6 +63,11 @@
   "dependencies": {
     "axios": "^1.15.2",
     "class-validator": "^0.15.1",
+    "jose": "^6.2.3",
     "jwt-decode": "^4.0.0"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.1.19",
+    "@nestjs/core": "^11.1.19"
   }
 }
