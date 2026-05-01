@@ -4,35 +4,35 @@
   "description": "Package description",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
-  "types": "./src/index.ts",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "import": {
-        "types": "./src/index.ts",
+        "types": "./dist/index.d.ts",
         "default": "./dist/index.mjs"
       },
       "require": {
-        "types": "./src/index.ts",
+        "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
       }
     },
     "./server": {
       "import": {
-        "types": "./src/server/index.ts",
+        "types": "./dist/server/index.d.ts",
         "default": "./dist/server/index.mjs"
       },
       "require": {
-        "types": "./src/server/index.ts",
+        "types": "./dist/server/index.d.ts",
         "default": "./dist/server/index.js"
       }
     },
     "./dto": {
       "import": {
-        "types": "./src/dto/index.ts",
+        "types": "./dist/dto/index.d.ts",
         "default": "./dist/dto/index.mjs"
       },
       "require": {
-        "types": "./src/dto/index.ts",
+        "types": "./dist/dto/index.d.ts",
         "default": "./dist/dto/index.js"
       }
     }
@@ -53,6 +53,7 @@
     "@nestjs/common": "^11.1.19",
     "@nestjs/core": "^11.1.19",
     "@swc/core": "^1.15.32",
+    "@types/express": "^5.0.6",
     "@types/node": "^25.6.0",
     "nodemon": "^3.1.14",
     "prettier": "^3.8.3",
