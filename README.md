@@ -1,32 +1,38 @@
 # @workspace/auth
 
-Universal JWT authentication package — shared client singleton, NestJS server module, and DTOs.
+Universal JWT authentication package — generic client singleton and NestJS server module.
+
+This package is intentionally app-agnostic. It handles token lifecycle, session checks, and API communication. Data shapes (DTOs, request bodies) and auth state mapping belong in the consuming application, not here.
 
 ## Exports
 
-| Path                     | Use case                                                            |
-|--------------------------|---------------------------------------------------------------------|
-| `@workspace/auth`        | Client-side `Auth` singleton (Next.js, React Native)               |
-| `@workspace/auth/server` | NestJS `JwtModule`, `BaseAuthGuard`, decorators                    |
-| `@workspace/auth/dto`    | Shared `LoginDto` / `RegisterDto` with `class-validator` decorators |
+| Path                     | Use case                                          |
+|--------------------------|---------------------------------------------------|
+| `@workspace/auth`        | Client-side `Auth` singleton (Next.js, React Native) |
+| `@workspace/auth/server` | NestJS `JwtModule`, `BaseAuthGuard`, decorators   |
+
+> **No shared DTOs.** `LoginDto`, `RegisterDto`, and any other request shapes are your app's responsibility. Define them wherever makes sense for your project (e.g. `src/lib/dto/auth.dto.ts`).
 
 ## Client setup
 
 ### 1. Configure the singleton
 
-Create `src/lib/auth.ts` in your app and configure once at startup:
+`Auth` is generic over your session shape — pass whatever your `/auth/session` endpoint returns and map it to `AuthState` in `sessionToAuthState`. The package never assumes what a "profile" or "user" looks like.
 
 ```ts
 import { Auth } from '@workspace/auth';
 
-export const authInstance = new Auth();
+// Define your session shape (matches what GET /auth/session returns)
+type MySession = { id: string; profile: { id: string } | null };
 
-authInstance.configure({
+export const auth = new Auth<MySession>();
+
+auth.configure({
   apiBaseUrl: process.env.NEXT_PUBLIC_API_URL,
   sessionToAuthState: (session) => ({
     authenticated: true,
-    authProviderId: session.user.id,
-    profileId: session.user.profile?.id ?? null,
+    authProviderId: session.id,
+    profileId: session.profile?.id ?? null,
   }),
 });
 ```
@@ -38,7 +44,7 @@ Call `initialize()` once — it hits `GET /auth/session` and sets the initial au
 ```ts
 // e.g. in providers.tsx or _app.tsx
 useEffect(() => {
-  authInstance.initialize();
+  auth.initialize();
 }, []);
 ```
 
@@ -46,24 +52,29 @@ useEffect(() => {
 
 ```ts
 useEffect(() => {
-  return authInstance.onAuthStateChanged((state) => {
+  return auth.onAuthStateChanged((state) => {
     if (!state.authenticated) router.replace('/auth/login');
+    else if (!state.profileId) router.replace('/onboarding');
   });
 }, []);
 ```
 
+`profileId` being `null` means the identity exists but onboarding isn't complete. The server signals this by omitting `userId` from the access token — no special token type needed.
+
 ### 4. Sign in / register / sign out
 
 ```ts
-await authInstance.signIn(email, password);
-await authInstance.register(email, password);
-authInstance.signOut();
+await auth.signIn(email, password);
+await auth.register(email, password);
+auth.signOut();
 ```
+
+`signIn` and `register` accept plain email/password strings. Define your own `LoginDto` / `RegisterDto` in your app if you need `class-validator`-backed form validation.
 
 ### 5. Attach to Axios (automatic 401 retry)
 
 ```ts
-authInstance.attachInterceptors(axiosInstance);
+auth.attachInterceptors(axiosInstance);
 ```
 
 ---
@@ -81,8 +92,6 @@ pnpm add -D @types/cookie-parser
 
 ### 1. Register JwtModule
 
-Register once at the app level with `forRootAsync`. Pass `isGlobal: true` so every module can inject `JwtService` without re-importing.
-
 ```ts
 // app.module.ts
 import { JwtModule } from '@workspace/auth/server';
@@ -96,9 +105,9 @@ import { JwtModule } from '@workspace/auth/server';
       useFactory: (config: ConfigService) => ({
         accessSecret: config.get('JWT_ACCESS_SECRET'),
         refreshSecret: config.get('JWT_REFRESH_SECRET'),
-        issuer: config.get('BACKEND_HOST'), // written into every token as the `iss` claim
-        accessExpiresIn: '15m',             // optional, default '15m'
-        refreshExpiresIn: '7d',             // optional, default '7d'
+        issuer: config.get('BACKEND_HOST'),
+        accessExpiresIn: '15m',   // optional, default '15m'
+        refreshExpiresIn: '7d',   // optional, default '7d'
       }),
     }),
   ],
@@ -108,10 +117,9 @@ export class AppModule {}
 
 ### 2. Implement the guard
 
-Extend `BaseAuthGuard` and implement `findUser(sub)`. The `sub` is the value you passed as the first argument to `signAccessToken` — typically your auth provider's primary key.
+Extend `BaseAuthGuard` and implement `findUser(sub)`. The `sub` is the subject you pass to `signAccessToken` — typically your identity provider's primary key.
 
 ```ts
-// auth/auth.guard.ts
 import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { BaseAuthGuard, JwtService } from '@workspace/auth/server';
@@ -123,63 +131,44 @@ export class AuthGuard extends BaseAuthGuard {
   }
 
   async findUser(sub: string) {
-    // Return whatever you want attached to request.user.
-    // Return null during onboarding and pair with @AuthOnly() on those routes.
-    return this.users.findOne({ where: { id: sub }, relations: { profile: true } });
+    return this.users.findOne({ where: { id: sub } });
   }
 }
 ```
 
-Register it globally in `AppModule` so every route is protected by default:
+Register globally so every route is protected by default:
 
 ```ts
-import {APP_GUARD} from '@nestjs/core';
+import { APP_GUARD } from '@nestjs/core';
 
-@Module({
-  providers: [
-    {
-      provide: APP_GUARD,
-      useClass: AuthGuard
-    }
-  ]
-})
-export class AppModule {}
+providers: [{ provide: APP_GUARD, useClass: AuthGuard }]
 ```
 
 ### 3. Use the decorators
 
 ```ts
-import {AuthOnly, CurrentUser, Public, Roles} from '@workspace/auth/server';
-import {LoginDto} from '@workspace/auth/dto';
+import { AuthOnly, CurrentUser, Public, Roles } from '@workspace/auth/server';
 
 export class AuthController {
 
-  // Skip auth — login, register, public endpoints
+  // Skip auth entirely — login, register, public pages
   @Public()
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    // ...
-  }
+  login(@Body() body: { email: string; password: string }) { ... }
 
-  // Valid token required, but user entity can be null (mid-onboarding)
+  // Valid token required, but no profile yet (mid-onboarding)
   @AuthOnly()
-  @Get('onboarding')
-  getOnboarding(@CurrentUser() user: User | null) {
-    // ...
-  }
+  @Post('complete-registration')
+  completeRegistration(@CurrentUser() user: User | null) { ... }
 
-  // Fully authenticated — user entity must exist
+  // Fully authenticated — user entity must be present
   @Get('me')
-  getMe(@CurrentUser() user: User) {
-    // ...
-  }
+  getMe(@CurrentUser() user: User) { ... }
 
-  // Authenticated + specific role
+  // Authenticated + role check
   @Roles('admin')
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    // ...
-  }
+  remove(@Param('id') id: string) { ... }
 }
 ```
 
@@ -194,54 +183,30 @@ import { JwtService } from '@workspace/auth/server';
 export class AuthService {
   constructor(private readonly jwtService: JwtService) {}
 
-  async login(user: User, res: Response) {
-    const access  = await this.jwtService.signAccessToken(user.id);
-    const refresh = await this.jwtService.signRefreshToken(user.id);
+  /**
+   * Full session: pass sub + any extra claims (e.g. userId, role).
+   * Onboarding: pass only sub — the absence of userId signals no profile yet.
+   * The client reads profileId from AuthState; a null value means onboarding.
+   */
+  async issueTokens(identityId: string, user: User | null, res: Response) {
+    const extra = user ? { userId: user.id, role: user.role } : {};
+    const access  = await this.jwtService.signAccessToken(identityId, extra);
+    const refresh = await this.jwtService.signRefreshToken(identityId);
 
-    // Decode to read the real expiry for the cookie maxAge
-    const { exp: accessExp }  = await this.jwtService.decodeToken(access);
-    const { exp: refreshExp } = await this.jwtService.decodeToken(refresh);
-
-    res.cookie('access_token', access, {
-      httpOnly: true, secure: true, sameSite: 'lax',
-      path: '/', expires: new Date(accessExp! * 1000),
-    });
-    res.cookie('refresh_token', refresh, {
-      httpOnly: true, secure: true, sameSite: 'lax',
-      path: '/auth/refresh',             // browser only sends this on the refresh route
-      expires: new Date(refreshExp! * 1000),
-    });
-
-    return { user };
-  }
-
-  async refresh(req: Request, res: Response) {
-    const token = req.cookies?.['refresh_token']
-      ?? req.headers['x-refresh-token'];           // mobile fallback
-
-    if (!token) throw new UnauthorizedException();
-
-    const payload = await this.jwtService.verifyRefreshToken(token as string);
-    const newAccess = await this.jwtService.signAccessToken(payload.sub!);
-    const { exp } = await this.jwtService.decodeToken(newAccess);
-
-    res.cookie('access_token', newAccess, {
-      httpOnly: true, secure: true, sameSite: 'lax',
-      path: '/', expires: new Date(exp! * 1000),
-    });
-
-    return { success: true };
+    res.cookie('access_token',  access,  { httpOnly: true, secure: true, sameSite: 'lax', path: '/' });
+    res.cookie('refresh_token', refresh, { httpOnly: true, secure: true, sameSite: 'lax', path: '/auth/refresh' });
   }
 }
 ```
 
 ### 5. What you write yourself (project-specific)
 
-| Piece            | Why it's yours                                                  |
-|------------------|-----------------------------------------------------------------|
-| `LocalStrategy`  | Needs your user repo + password hashing lib (argon2, bcrypt)    |
-| `AuthController` | Routes, response shapes, and cookie names vary per project      |
-| `AuthModule`     | Wires your `AuthService`, `LocalStrategy`, and `AuthController` |
+| Piece            | Why it's yours                                                    |
+|------------------|-------------------------------------------------------------------|
+| `LoginDto` / `RegisterDto` | Request shapes vary per project; use `class-validator` as needed |
+| `LocalStrategy`  | Needs your user repo + password hashing lib (argon2, bcrypt)     |
+| `AuthController` | Routes, cookie names, and response shapes vary per project        |
+| `AuthModule`     | Wires your `AuthService`, `LocalStrategy`, and `AuthController`   |
 
 ---
 

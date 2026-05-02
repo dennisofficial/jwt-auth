@@ -29,15 +29,15 @@ export interface ITokenPersistenceAdapter {
 }
 
 /**
- * Auth response from backend.
+ * Auth response from backend (/login, /register, /complete-registration).
+ * The `user` field must be the same shape your `/auth/session` endpoint returns,
+ * so it can be passed directly to `sessionToAuthState`.
+ *
  * `tokens` is present only in the mobile flow (includeTokens=true).
  * Web flow relies on httpOnly cookies; tokens are never sent in the body.
  */
-export interface AuthResponse {
-  user: {
-    id: string;
-    profile?: { id: string } | null;
-  };
+export interface AuthResponse<Session = Record<string, any>> {
+  user: Session;
   tokens?: {
     access: string;
     refresh: string;

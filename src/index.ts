@@ -10,6 +10,3 @@ export type {
   ITokenPersistenceAdapter,
   UnsubscribeFunction,
 } from './types';
-
-// DTOs
-export * from './dto';

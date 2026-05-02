@@ -1,6 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { jwtDecode } from 'jwt-decode';
-import { LoginDto, RegisterDto } from './dto';
 import type {
   AuthConfig,
   AuthResponse,
@@ -11,7 +10,7 @@ import type {
 
 interface JwtPayload {
   sub: string;
-  userId: string | null;
+  userId?: string | null;
   exp: number;
   iat: number;
 }
@@ -106,15 +105,13 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
 
   private async refreshTokensFromStorage(refreshToken: string): Promise<void> {
     try {
-      const response = await this._axiosInstance!.post<AuthResponse>(
-        '/auth/refresh',
-        {},
-        {
-          headers: { 'X-Refresh-Token': refreshToken },
-          params: { includeTokens: 'true' },
-          withCredentials: true,
-        },
-      );
+      const response = await this._axiosInstance!.request<AuthResponse<Session>>({
+        method: 'POST',
+        url: '/auth/refresh',
+        headers: { 'X-Refresh-Token': refreshToken },
+        params: { includeTokens: 'true' },
+        withCredentials: true,
+      });
       await this.handleAuthResponse(response.data);
     } catch (error) {
       if (this.isAuthError(error)) {
@@ -123,40 +120,32 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     }
   }
 
-  async signIn(email: string, password: string): Promise<void> {
+  async signIn(email: string, password: string): Promise<AuthResponse<Session>> {
     this.ensureConfigured();
-    const dto: LoginDto = { email, password };
     const config: AxiosRequestConfig = this.hasTokenPersistence()
       ? { params: { includeTokens: 'true' } }
       : {};
-    const response = await this._axiosInstance!.post<AuthResponse>('/auth/login', dto, {
-      ...config,
-      withCredentials: true,
-    });
-    if (this.hasTokenPersistence()) {
-      await this.handleAuthResponse(response.data);
-    } else {
-      // Cookie is already set by the backend — hydrate state via session endpoint.
-      await this.checkSession();
-    }
+    const response = await this._axiosInstance!.post<AuthResponse<Session>>(
+      '/auth/login',
+      { email, password },
+      { ...config, withCredentials: true },
+    );
+    await this.handleAuthResponse(response.data);
+    return response.data;
   }
 
-  async register(email: string, password: string): Promise<void> {
+  async register(email: string, password: string): Promise<AuthResponse<Session>> {
     this.ensureConfigured();
-    const dto: RegisterDto = { email, password };
     const config: AxiosRequestConfig = this.hasTokenPersistence()
       ? { params: { includeTokens: 'true' } }
       : {};
-    const response = await this._axiosInstance!.post<AuthResponse>('/auth/register', dto, {
-      ...config,
-      withCredentials: true,
-    });
-    if (this.hasTokenPersistence()) {
-      await this.handleAuthResponse(response.data);
-    } else {
-      // Cookie is already set by the backend — hydrate state via session endpoint.
-      await this.checkSession();
-    }
+    const response = await this._axiosInstance!.post<AuthResponse<Session>>(
+      '/auth/register',
+      { email, password },
+      { ...config, withCredentials: true },
+    );
+    await this.handleAuthResponse(response.data);
+    return response.data;
   }
 
   signOut(): void {
@@ -220,16 +209,15 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     const refresh = this._refreshToken;
     if (!this.validateTokens(access, refresh)) throw new Error('Invalid tokens');
     try {
-      const response = await axios.post<AuthResponse>(
-        `${this.config!.apiBaseUrl}/auth/refresh`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${access}`, 'X-Refresh-Token': refresh },
-          timeout: 30000,
-          params: { includeTokens: 'true' },
-          withCredentials: true,
-        },
-      );
+      const response = await axios.request<AuthResponse<Session>>({
+        method: 'POST',
+        baseURL: this.config!.apiBaseUrl,
+        url: '/auth/refresh',
+        headers: { Authorization: `Bearer ${access}`, 'X-Refresh-Token': refresh },
+        timeout: 30000,
+        params: { includeTokens: 'true' },
+        withCredentials: true,
+      });
       await this.handleAuthResponse(response.data);
     } catch (error) {
       if (this.isAuthError(error)) this.signOut();
@@ -258,7 +246,8 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     return Date.now() >= this._refreshExpiresAt;
   }
 
-  private async handleAuthResponse(data: AuthResponse): Promise<void> {
+  private async handleAuthResponse(data: AuthResponse<Session>): Promise<void> {
+    const authState = this.config!.sessionToAuthState(data.user);
     if (this.hasTokenPersistence() && data.tokens) {
       try {
         const accessData = this.extractAccessTokenData(data.tokens.access);
@@ -269,21 +258,13 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
         this._refreshToken = data.tokens.refresh;
         this._accessExpiresAt = accessData.expiresAt;
         this._refreshExpiresAt = refreshExpiresAt;
-        this.updateState({
-          authenticated: true,
-          authProviderId: data.user.id,
-          profileId: data.user.profile?.id || null,
-        });
+        this.updateState(authState);
       } catch (error) {
         console.error('Failed to save tokens:', error);
         throw new Error('Failed to save authentication tokens');
       }
     } else {
-      this.updateState({
-        authenticated: true,
-        authProviderId: data.user.id,
-        profileId: data.user.profile?.id || null,
-      });
+      this.updateState(authState);
     }
   }
 
@@ -398,7 +379,11 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
   ): { userId: string | null; authProviderId: string; expiresAt: number } | null {
     const payload = this.decodeToken(accessToken);
     if (!payload) return null;
-    return { userId: payload.userId, authProviderId: payload.sub, expiresAt: payload.exp * 1000 };
+    return {
+      userId: payload.userId ?? null,
+      authProviderId: payload.sub,
+      expiresAt: payload.exp * 1000,
+    };
   }
 
   private extractRefreshTokenExpiry(refreshToken: string): number | null {

@@ -25,16 +25,6 @@
         "types": "./dist/server/index.d.ts",
         "default": "./dist/server/index.js"
       }
-    },
-    "./dto": {
-      "import": {
-        "types": "./dist/dto/index.d.ts",
-        "default": "./dist/dto/index.mjs"
-      },
-      "require": {
-        "types": "./dist/dto/index.d.ts",
-        "default": "./dist/dto/index.js"
-      }
     }
   },
   "files": [
