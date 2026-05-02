@@ -335,6 +335,15 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     return { ...this.state };
   }
 
+  /**
+   * The pre-configured axios instance (withCredentials already set).
+   * Use this in UI code to make API requests without re-creating a client.
+   */
+  get httpClient(): AxiosInstance {
+    this.ensureConfigured();
+    return this._axiosInstance!;
+  }
+
   private updateState(newState: Partial<AuthState>): void {
     const mergedState = { ...this.state, ...newState };
     if (!this.hasStateChanged(this.state, mergedState)) return;

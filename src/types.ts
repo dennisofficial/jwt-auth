@@ -29,14 +29,16 @@ export interface ITokenPersistenceAdapter {
 }
 
 /**
- * Auth response from backend (matches LoginResponse DTO)
+ * Auth response from backend.
+ * `tokens` is present only in the mobile flow (includeTokens=true).
+ * Web flow relies on httpOnly cookies; tokens are never sent in the body.
  */
 export interface AuthResponse {
   user: {
     id: string;
     profile?: { id: string } | null;
   };
-  tokens: {
+  tokens?: {
     access: string;
     refresh: string;
   };
