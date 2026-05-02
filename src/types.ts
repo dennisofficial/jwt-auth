@@ -14,6 +14,11 @@ export interface AuthState {
  */
 export interface AuthConfig<Session extends Record<string, any> = Record<string, any>> {
   apiBaseUrl: string;
+  /**
+   * Base path for all auth endpoints. Defaults to '/auth'.
+   * Set to '/auth/customer' for the customer app or '/auth/staff' for the admin app.
+   */
+  authBasePath?: string;
   /** Optional - if not provided, uses cookies only (web) */
   tokenPersistence?: ITokenPersistenceAdapter;
   sessionToAuthState: (session: Session) => AuthState;

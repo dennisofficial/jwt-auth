@@ -48,6 +48,10 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     });
   }
 
+  private get authBasePath(): string {
+    return this.config?.authBasePath ?? '/auth';
+  }
+
   hasTokenPersistence(): boolean {
     return !!this.config?.tokenPersistence;
   }
@@ -107,7 +111,7 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     try {
       const response = await this._axiosInstance!.request<AuthResponse<Session>>({
         method: 'POST',
-        url: '/auth/refresh',
+        url: `${this.authBasePath}/refresh`,
         headers: { 'X-Refresh-Token': refreshToken },
         params: { includeTokens: 'true' },
         withCredentials: true,
@@ -126,7 +130,7 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
       ? { params: { includeTokens: 'true' } }
       : {};
     const response = await this._axiosInstance!.post<AuthResponse<Session>>(
-      '/auth/login',
+      `${this.authBasePath}/login`,
       { email, password },
       { ...config, withCredentials: true },
     );
@@ -140,7 +144,7 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
       ? { params: { includeTokens: 'true' } }
       : {};
     const response = await this._axiosInstance!.post<AuthResponse<Session>>(
-      '/auth/register',
+      `${this.authBasePath}/register`,
       { email, password },
       { ...config, withCredentials: true },
     );
@@ -157,7 +161,7 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
         if (this.hasTokenPersistence() && this._accessToken) {
           config.headers = { Authorization: `Bearer ${this._accessToken}` };
         }
-        await this._axiosInstance!.post('/auth/logout', {}, config);
+        await this._axiosInstance!.post(`${this.authBasePath}/logout`, {}, config);
       } catch {
         /* ignore */
       }
@@ -212,7 +216,7 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
       const response = await axios.request<AuthResponse<Session>>({
         method: 'POST',
         baseURL: this.config!.apiBaseUrl,
-        url: '/auth/refresh',
+        url: `${this.authBasePath}/refresh`,
         headers: { Authorization: `Bearer ${access}`, 'X-Refresh-Token': refresh },
         timeout: 30000,
         params: { includeTokens: 'true' },
@@ -227,7 +231,7 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
 
   private async _doRefreshWeb(): Promise<void> {
     try {
-      await this._axiosInstance!.post('/auth/refresh');
+      await this._axiosInstance!.post(`${this.authBasePath}/refresh`);
     } catch (error) {
       if (this.isAuthError(error)) {
         this.updateState({ authenticated: false, authProviderId: null, profileId: null });
@@ -409,14 +413,14 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
   async checkSession(): Promise<void> {
     this.ensureConfigured();
     try {
-      const response = await this._axiosInstance!.get<Session>('/auth/session');
+      const response = await this._axiosInstance!.get<Session>(`${this.authBasePath}/session`);
       this.updateState(this.config!.sessionToAuthState(response.data));
     } catch (error) {
       if (this.isAuthError(error)) {
         if (!this.hasTokenPersistence()) {
           try {
             await this.refreshToken();
-            const response = await this._axiosInstance!.get<Session>('/auth/session');
+            const response = await this._axiosInstance!.get<Session>(`${this.authBasePath}/session`);
             this.updateState(this.config!.sessionToAuthState(response.data));
             return;
           } catch {
