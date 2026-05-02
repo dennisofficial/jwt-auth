@@ -123,7 +123,7 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     }
   }
 
-  async signIn(email: string, password: string): Promise<AuthResponse> {
+  async signIn(email: string, password: string): Promise<void> {
     this.ensureConfigured();
     const dto: LoginDto = { email, password };
     const config: AxiosRequestConfig = this.hasTokenPersistence()
@@ -133,11 +133,15 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
       ...config,
       withCredentials: true,
     });
-    await this.handleAuthResponse(response.data);
-    return response.data;
+    if (this.hasTokenPersistence()) {
+      await this.handleAuthResponse(response.data);
+    } else {
+      // Cookie is already set by the backend — hydrate state via session endpoint.
+      await this.checkSession();
+    }
   }
 
-  async register(email: string, password: string): Promise<AuthResponse> {
+  async register(email: string, password: string): Promise<void> {
     this.ensureConfigured();
     const dto: RegisterDto = { email, password };
     const config: AxiosRequestConfig = this.hasTokenPersistence()
@@ -147,8 +151,12 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
       ...config,
       withCredentials: true,
     });
-    await this.handleAuthResponse(response.data);
-    return response.data;
+    if (this.hasTokenPersistence()) {
+      await this.handleAuthResponse(response.data);
+    } else {
+      // Cookie is already set by the backend — hydrate state via session endpoint.
+      await this.checkSession();
+    }
   }
 
   signOut(): void {
