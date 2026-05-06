@@ -420,7 +420,9 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
         if (!this.hasTokenPersistence()) {
           try {
             await this.refreshToken();
-            const response = await this._axiosInstance!.get<Session>(`${this.authBasePath}/session`);
+            const response = await this._axiosInstance!.get<Session>(
+              `${this.authBasePath}/session`,
+            );
             this.updateState(this.config!.sessionToAuthState(response.data));
             return;
           } catch {
