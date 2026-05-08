@@ -19,4 +19,4 @@ export { IS_PUBLIC_KEY, Public } from './decorators/public.decorator';
 export { ROLES_KEY, Roles } from './decorators/roles.decorator';
 
 // Types
-export type { JwtModuleOptions } from './jwt/jwt-module-options.interface';
+export type { JwtModuleOptions } from './jwt/jwt-types';

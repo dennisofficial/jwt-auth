@@ -1,5 +1,5 @@
 import { ConfigurableModuleBuilder } from '@nestjs/common';
-import type { JwtModuleOptions } from './jwt-module-options.interface';
+import type { JwtModuleOptions } from './jwt-types';
 
 export const {
   ConfigurableModuleClass,

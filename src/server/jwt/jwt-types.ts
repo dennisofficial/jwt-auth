@@ -1,4 +1,4 @@
-export interface JwtModuleOptions {
+export type JwtModuleOptions = {
   /** Secret used to sign access tokens — e.g. JWT_ACCESS_SECRET */
   accessSecret: string;
   /** Secret used to sign refresh tokens — e.g. JWT_REFRESH_SECRET */

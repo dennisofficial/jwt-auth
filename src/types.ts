@@ -3,7 +3,7 @@
  * Clean public API - only exposes what users need
  * Tokens and expiration times are cached internally
  */
-export interface AuthState {
+export type AuthState = {
   authenticated: boolean;
   authProviderId: string | null;
   profileId: string | null;
@@ -12,7 +12,7 @@ export interface AuthState {
 /**
  * Authentication configuration
  */
-export interface AuthConfig<Session extends Record<string, any> = Record<string, any>> {
+export type AuthConfig<Session extends Record<string, any> = Record<string, any>> = {
   apiBaseUrl: string;
   /**
    * Base path for all auth endpoints. Defaults to '/auth'.
@@ -41,7 +41,7 @@ export interface ITokenPersistenceAdapter {
  * `tokens` is present only in the mobile flow (includeTokens=true).
  * Web flow relies on httpOnly cookies; tokens are never sent in the body.
  */
-export interface AuthResponse<Session = Record<string, any>> {
+export type AuthResponse<Session = Record<string, any>> = {
   user: Session;
   tokens?: {
     access: string;

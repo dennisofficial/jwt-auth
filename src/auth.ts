@@ -8,7 +8,7 @@ import type {
   UnsubscribeFunction,
 } from './types';
 
-interface JwtPayload {
+type JwtPayload = {
   sub: string;
   userId?: string | null;
   exp: number;
