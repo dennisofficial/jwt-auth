@@ -358,7 +358,8 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     return (
       oldState.authenticated !== newState.authenticated ||
       oldState.authProviderId !== newState.authProviderId ||
-      oldState.profileId !== newState.profileId
+      oldState.profileId !== newState.profileId ||
+      !!oldState.backendUnreachable !== !!newState.backendUnreachable
     );
   }
 
@@ -414,7 +415,7 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     this.ensureConfigured();
     try {
       const response = await this._axiosInstance!.get<Session>(`${this.authBasePath}/session`);
-      this.updateState(this.config!.sessionToAuthState(response.data));
+      this.updateState({ ...this.config!.sessionToAuthState(response.data), backendUnreachable: false });
     } catch (error) {
       if (this.isAuthError(error)) {
         if (!this.hasTokenPersistence()) {
@@ -423,14 +424,18 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
             const response = await this._axiosInstance!.get<Session>(
               `${this.authBasePath}/session`,
             );
-            this.updateState(this.config!.sessionToAuthState(response.data));
+            this.updateState({ ...this.config!.sessionToAuthState(response.data), backendUnreachable: false });
             return;
           } catch {
-            this.updateState({ authenticated: false, authProviderId: null, profileId: null });
+            this.updateState({ authenticated: false, authProviderId: null, profileId: null, backendUnreachable: false });
             return;
           }
         }
-        this.updateState({ authenticated: false, authProviderId: null, profileId: null });
+        this.updateState({ authenticated: false, authProviderId: null, profileId: null, backendUnreachable: false });
+      } else if (axios.isAxiosError(error) && !error.response) {
+        // Network-level failure — backend is down, timed out, or connection refused.
+        // Do NOT mark as unauthenticated; we simply don't know the session state.
+        this.updateState({ backendUnreachable: true });
       }
     }
   }

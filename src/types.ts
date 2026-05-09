@@ -7,6 +7,12 @@ export type AuthState = {
   authenticated: boolean;
   authProviderId: string | null;
   profileId: string | null;
+  /**
+   * True when the session check failed due to a network-level error
+   * (no response received — backend is down, timed out, or connection refused).
+   * Guards should show a "service unavailable" screen instead of redirecting to login.
+   */
+  backendUnreachable?: boolean;
 }
 
 /**
