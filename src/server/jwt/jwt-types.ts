@@ -12,4 +12,4 @@ export type JwtModuleOptions = {
   accessExpiresIn?: string;
   /** Refresh token lifetime. Defaults to '7d'. */
   refreshExpiresIn?: string;
-}
+};

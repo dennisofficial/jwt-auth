@@ -13,7 +13,7 @@ export type AuthState = {
    * Guards should show a "service unavailable" screen instead of redirecting to login.
    */
   backendUnreachable?: boolean;
-}
+};
 
 /**
  * Authentication configuration
@@ -28,7 +28,7 @@ export type AuthConfig<Session extends Record<string, any> = Record<string, any>
   /** Optional - if not provided, uses cookies only (web) */
   tokenPersistence?: ITokenPersistenceAdapter;
   sessionToAuthState: (session: Session) => AuthState;
-}
+};
 
 /**
  * Token persistence adapter interface (mobile)
@@ -53,7 +53,7 @@ export type AuthResponse<Session = Record<string, any>> = {
     access: string;
     refresh: string;
   };
-}
+};
 
 /**
  * Auth state change callback
