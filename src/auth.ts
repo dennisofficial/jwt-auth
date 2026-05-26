@@ -251,6 +251,9 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
   }
 
   private async handleAuthResponse(data: AuthResponse<Session>): Promise<void> {
+    if (data.user == null) {
+      throw new Error('Auth response missing user');
+    }
     const authState = this.config!.sessionToAuthState(data.user);
     if (this.hasTokenPersistence() && data.tokens) {
       try {
