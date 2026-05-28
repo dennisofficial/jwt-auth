@@ -53,6 +53,11 @@ useEffect(() => {
 ```ts
 useEffect(() => {
   return auth.onAuthStateChanged((state) => {
+    if (state.backendUnreachable) {
+      // No response from the server — show a "Service Unavailable" screen.
+      // Do NOT redirect to login; we can't confirm the session state.
+      return;
+    }
     if (!state.authenticated) router.replace('/auth/login');
     else if (!state.profileId) router.replace('/onboarding');
   });
@@ -60,6 +65,19 @@ useEffect(() => {
 ```
 
 `profileId` being `null` means the identity exists but onboarding isn't complete. The server signals this by omitting `userId` from the access token — no special token type needed.
+
+#### `backendUnreachable` — network failure vs auth failure
+
+`state.backendUnreachable` is set to `true` whenever an auth call (session check, token refresh, sign-in, register) receives **no HTTP response** — connection refused, DNS failure, timeout. It is distinct from a `401`, which means the backend responded and rejected the session.
+
+When `backendUnreachable` is true:
+- `authenticated` is **not** changed — the previous value is preserved.
+- Listeners fire so the UI can react immediately.
+- The flag clears automatically to `false` the next time any auth call **succeeds**.
+
+The flag is set from every internal network path: `checkSession`, mobile token refresh (`refreshTokensFromStorage`, `_doRefresh`), web refresh (`_doRefreshWeb`), `signIn`, and `register`. This means the screen triggers correctly whether the outage is hit during cold launch, a background refresh, or a form submission.
+
+**Recovery pattern** — call `auth.checkSession()` (web) or `auth.initialize()` (mobile) from a retry button or a background poll. On success the flag clears and `onAuthStateChanged` fires again with the real session state, returning the user to the normal flow without a page reload.
 
 ### 4. Sign in / register / sign out
 
