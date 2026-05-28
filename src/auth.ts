@@ -120,6 +120,8 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     } catch (error) {
       if (this.isAuthError(error)) {
         await this.clearTokensSafely();
+      } else if (this.isNetworkError(error)) {
+        this.updateState({ backendUnreachable: true });
       }
     }
   }
@@ -129,13 +131,18 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     const config: AxiosRequestConfig = this.hasTokenPersistence()
       ? { params: { includeTokens: 'true' } }
       : {};
-    const response = await this._axiosInstance!.post<AuthResponse<Session>>(
-      `${this.authBasePath}/login`,
-      { email, password },
-      { ...config, withCredentials: true },
-    );
-    await this.handleAuthResponse(response.data);
-    return response.data;
+    try {
+      const response = await this._axiosInstance!.post<AuthResponse<Session>>(
+        `${this.authBasePath}/login`,
+        { email, password },
+        { ...config, withCredentials: true },
+      );
+      await this.handleAuthResponse(response.data);
+      return response.data;
+    } catch (error) {
+      if (this.isNetworkError(error)) this.updateState({ backendUnreachable: true });
+      throw error;
+    }
   }
 
   async register(email: string, password: string): Promise<AuthResponse<Session>> {
@@ -143,13 +150,18 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     const config: AxiosRequestConfig = this.hasTokenPersistence()
       ? { params: { includeTokens: 'true' } }
       : {};
-    const response = await this._axiosInstance!.post<AuthResponse<Session>>(
-      `${this.authBasePath}/register`,
-      { email, password },
-      { ...config, withCredentials: true },
-    );
-    await this.handleAuthResponse(response.data);
-    return response.data;
+    try {
+      const response = await this._axiosInstance!.post<AuthResponse<Session>>(
+        `${this.authBasePath}/register`,
+        { email, password },
+        { ...config, withCredentials: true },
+      );
+      await this.handleAuthResponse(response.data);
+      return response.data;
+    } catch (error) {
+      if (this.isNetworkError(error)) this.updateState({ backendUnreachable: true });
+      throw error;
+    }
   }
 
   signOut(): void {
@@ -225,6 +237,7 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
       await this.handleAuthResponse(response.data);
     } catch (error) {
       if (this.isAuthError(error)) this.signOut();
+      else if (this.isNetworkError(error)) this.updateState({ backendUnreachable: true });
       throw error;
     }
   }
@@ -235,6 +248,8 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     } catch (error) {
       if (this.isAuthError(error)) {
         this.updateState({ authenticated: false, authProviderId: null, profileId: null });
+      } else if (this.isNetworkError(error)) {
+        this.updateState({ backendUnreachable: true });
       }
       throw error;
     }
@@ -254,7 +269,7 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
     if (data.user == null) {
       throw new Error('Auth response missing user');
     }
-    const authState = this.config!.sessionToAuthState(data.user);
+    const authState = { ...this.config!.sessionToAuthState(data.user), backendUnreachable: false };
     if (this.hasTokenPersistence() && data.tokens) {
       try {
         const accessData = this.extractAccessTokenData(data.tokens.access);
@@ -412,6 +427,10 @@ export class Auth<Session extends Record<string, any> = Record<string, any>> {
 
   private isAuthError(error: any): boolean {
     return error?.response?.status === 401;
+  }
+
+  private isNetworkError(error: any): boolean {
+    return axios.isAxiosError(error) && !error.response;
   }
 
   async checkSession(): Promise<void> {
