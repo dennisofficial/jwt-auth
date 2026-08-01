@@ -1,4 +1,4 @@
-# @workspace/auth
+# @dltech/jwt-auth
 
 Universal JWT authentication package — generic client singleton and NestJS server module.
 
@@ -6,10 +6,10 @@ This package is intentionally app-agnostic. It handles token lifecycle, session 
 
 ## Exports
 
-| Path                     | Use case                                          |
-|--------------------------|---------------------------------------------------|
-| `@workspace/auth`        | Client-side `Auth` singleton (Next.js, React Native) |
-| `@workspace/auth/server` | NestJS `JwtModule`, `BaseAuthGuard`, decorators   |
+| Path                      | Use case                                             |
+|---------------------------|-------------------------------------------------------|
+| `@dltech/jwt-auth`        | Client-side `Auth` singleton (Next.js, React Native) |
+| `@dltech/jwt-auth/server` | NestJS `JwtModule`, `BaseAuthGuard`, decorators      |
 
 > **No shared DTOs.** `LoginDto`, `RegisterDto`, and any other request shapes are your app's responsibility. Define them wherever makes sense for your project (e.g. `src/lib/dto/auth.dto.ts`).
 
@@ -20,7 +20,7 @@ This package is intentionally app-agnostic. It handles token lifecycle, session 
 `Auth` is generic over your session shape — pass whatever your `/auth/session` endpoint returns and map it to `AuthState` in `sessionToAuthState`. The package never assumes what a "profile" or "user" looks like.
 
 ```ts
-import { Auth } from '@workspace/auth';
+import { Auth } from '@dltech/jwt-auth';
 
 // Define your session shape (matches what GET /auth/session returns)
 type MySession = { id: string; profile: { id: string } | null };
@@ -99,7 +99,7 @@ auth.attachInterceptors(axiosInstance);
 
 ## Server setup (NestJS)
 
-`@workspace/auth/server` ships `JwtModule`, `BaseAuthGuard`, and route decorators. No Passport dependency — token signing and verification is handled internally using [`jose`](https://github.com/panva/jose).
+`@dltech/jwt-auth/server` ships `JwtModule`, `BaseAuthGuard`, and route decorators. No Passport dependency — token signing and verification is handled internally using [`jose`](https://github.com/panva/jose).
 
 ### Install peer deps
 
@@ -112,7 +112,7 @@ pnpm add -D @types/cookie-parser
 
 ```ts
 // app.module.ts
-import { JwtModule } from '@workspace/auth/server';
+import { JwtModule } from '@dltech/jwt-auth/server';
 
 @Module({
   imports: [
@@ -140,7 +140,7 @@ Extend `BaseAuthGuard` and implement `findUser(sub)`. The `sub` is the subject y
 ```ts
 import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { BaseAuthGuard, JwtService } from '@workspace/auth/server';
+import { BaseAuthGuard, JwtService } from '@dltech/jwt-auth/server';
 
 @Injectable()
 export class AuthGuard extends BaseAuthGuard {
@@ -165,7 +165,7 @@ providers: [{ provide: APP_GUARD, useClass: AuthGuard }]
 ### 3. Use the decorators
 
 ```ts
-import { AuthOnly, CurrentUser, Public, Roles } from '@workspace/auth/server';
+import { AuthOnly, CurrentUser, Public, Roles } from '@dltech/jwt-auth/server';
 
 export class AuthController {
 
@@ -195,7 +195,7 @@ export class AuthController {
 `JwtService` is injectable anywhere once the module is registered globally.
 
 ```ts
-import { JwtService } from '@workspace/auth/server';
+import { JwtService } from '@dltech/jwt-auth/server';
 
 @Injectable()
 export class AuthService {
